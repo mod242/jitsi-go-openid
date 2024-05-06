@@ -1,39 +1,43 @@
-on: release
-name: Build Release
+# .github/workflows/release.yaml
+
+on:
+  release:
+  workflow_dispatch:
+
 jobs:
-  release-linux-386:
-    name: release linux/386
+  releases-matrix:
+    name: Release Go Binary
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows]
+        goarch: ["386", amd64, arm64]
+        ext: ["", ".exe"]
+        # If more than one flag specified, rewrite build script and
+        # build_command below
+        ldflags: ["-w"]
+        exclude:
+          - goarch: "386"
+            goos: darwin
+          - goarch: arm64
+            goos: windows
+          - goos: darwin
+            ext: ".exe"
+          - goos: linux
+            ext: ".exe"
+          - ldflags: "-w"
+            goos: windows
     steps:
-    - uses: actions/checkout@master
-    - name: compile and release
-      uses: ngs/go-release.action@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GOARCH: "386"
-        GOOS: linux
-        EXTRA_FILES: "LICENSE"
-  release-linux-amd64:
-    name: release linux/amd64
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@master
-    - name: compile and release
-      uses: ngs/go-release.action@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GOARCH: amd64
-        GOOS: linux
-        EXTRA_FILES: "LICENSE"
-  release-linux-arm64:
-    name: release-linux-arm64
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@master
-    - name: compile and release
-      uses: ngs/go-release.action@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GOARCH: arm64
-        GOOS: linux
-        EXTRA_FILES: "LICENSE"
+      - uses: actions/checkout@v4
+      - uses: wangyoucao577/go-release-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          sha256sum: TRUE
+          md5sum: FALSE
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          goversion: 1.21.9
+          ldflags: ${{ matrix.ldflags }}
+          compress_assets: OFF
+          asset_name: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+          extra_files: LICENSE README.md
