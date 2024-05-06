@@ -2,7 +2,7 @@ name: Build and Push Docker Image to Docker Hub
 
 on:
   release:
-  workflow_dispatch:
+    types: [created]
 
 env:
   # Use docker.io for Docker Hub if empty
