@@ -1,4 +1,5 @@
 # .github/workflows/release.yaml
+permissions: write-all
 name: Release Binaries
 on:
   release:
