@@ -262,11 +262,12 @@ func main() {
 		q := jitsiURL.Query()
 		q.Set("jwt", tokenString)
 
+		jitsiURL.RawQuery = q.Encode()
+
 		if strings.ToLower(config.Prejoin) != "true" {
-			q.Set("config.prejoinConfig.enabled", "false")
+			jitsiURL.Fragment = "config.prejoinConfig.enabled=false"
 		}
 
-		jitsiURL.RawQuery = q.Encode()
 		log.Println("Redirect Url:", jitsiURL.String())
 		c.Redirect(http.StatusFound, jitsiURL.String())
 	})
