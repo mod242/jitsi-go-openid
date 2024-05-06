@@ -3,7 +3,7 @@ permissions: write-all
 name: Release Binaries
 on:
   release:
-    types: [created]
+    types: [published]
 
 jobs:
   releases-matrix:
