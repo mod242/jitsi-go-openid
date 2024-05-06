@@ -2,7 +2,7 @@
 name: Release Binaries
 on:
   release:
-  workflow_dispatch:
+    types: [created]
 
 jobs:
   releases-matrix:
