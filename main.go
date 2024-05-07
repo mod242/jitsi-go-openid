@@ -98,9 +98,14 @@ func main() {
 			return
 		}
 
-		electron, ok := data["electron"].(bool)
-		if !ok {
-			electron = false
+		client := "browser"
+
+		if val, ok := data["electron"].(bool); ok && val {
+			client = "electron"
+		} else if val, ok := data["ios"].(bool); ok && val {
+			client = "ios"
+		} else if val, ok := data["android"].(bool); ok && val {
+			client = "android"
 		}
 
 		state, err := randString(16)
@@ -117,7 +122,7 @@ func main() {
 		// Encode state with desktop information
 		stateData := map[string]interface{}{
 			"originalState": state,
-			"electron":      electron,
+			"client":        client,
 		}
 		stateJSON, err := json.Marshal(stateData)
 		if err != nil {
@@ -211,7 +216,6 @@ func main() {
 		}
 
 		user.User.ID = ""
-
 		// Decode and parse the state
 		stateJSON, err := base64.RawURLEncoding.DecodeString(stateDataEncoded)
 		if err != nil {
@@ -224,12 +228,6 @@ func main() {
 		if err != nil {
 			c.String(http.StatusInternalServerError, "failed to parse state")
 			return
-		}
-
-		// Extract desktop information from state
-		desktop, ok := stateData["electron"].(bool)
-		if !ok {
-			desktop = false
 		}
 
 		claims := jwt.MapClaims{}
@@ -255,8 +253,13 @@ func main() {
 
 		jitsiURL.Path = path.Join(jitsiURL.Path, room)
 
-		if desktop {
+		switch stateData["client"].(string) {
+		case "electron":
 			jitsiURL.Scheme = "jitsi-meet"
+		case "ios":
+			jitsiURL.Scheme = "org.jitsi.meet"
+		case "android":
+			jitsiURL.Scheme = "org.jitsi.meet"
 		}
 
 		q := jitsiURL.Query()
