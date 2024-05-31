@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,7 +32,9 @@ type Config struct {
 	BaseURL       string `mapstructure:"BASE_URL"`
 	ClientID      string `mapstructure:"CLIENT_ID"`
 	Secret        string `mapstructure:"SECRET"`
-	Prejoin       string `mapstructure:"PREJOIN"`
+	Prejoin       bool   `mapstructure:"PREJOIN"`
+	Deeplink      bool   `mapstructure:"DEEPLINK"`
+	NameKey       string `mapstructure:"NAME_KEY"`
 }
 
 var config Config
@@ -39,7 +42,29 @@ var config Config
 type PlayLoad struct {
 	ID    string `json:"sub,omitempty"`
 	Email string `json:"email,omitempty"`
-	Name  string `json:"name,omitempty"`
+	Name  string `json:"-"`
+}
+
+func (p *PlayLoad) UnmarshalJSON(data []byte) error {
+	var aux struct {
+		ID    string `json:"sub,omitempty"`
+		Email string `json:"email,omitempty"`
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	p.ID = aux.ID
+	p.Email = aux.Email
+
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	if name, ok := m[config.NameKey].(string); ok {
+		p.Name = name
+	}
+
+	return nil
 }
 
 type UserContext struct {
@@ -58,7 +83,14 @@ func init() {
 	config.BaseURL = os.Getenv("BASE_URL")
 	config.ClientID = os.Getenv("CLIENT_ID")
 	config.Secret = os.Getenv("SECRET")
-	config.Prejoin = os.Getenv("PREJOIN")
+	config.Prejoin, _ = strconv.ParseBool(os.Getenv("PREJOIN"))
+	config.Prejoin = config.Prejoin || false
+	config.Deeplink, _ = strconv.ParseBool(os.Getenv("DEEPLINK"))
+	config.Deeplink = config.Deeplink || true
+	config.NameKey = os.Getenv("NAME_KEY")
+	if config.NameKey == "" {
+		config.NameKey = "name"
+	}
 }
 
 func randString(nByte int) (string, error) {
@@ -253,13 +285,15 @@ func main() {
 
 		jitsiURL.Path = path.Join(jitsiURL.Path, room)
 
-		switch stateData["client"].(string) {
-		case "electron":
-			jitsiURL.Scheme = "jitsi-meet"
-		case "ios":
-			jitsiURL.Scheme = "org.jitsi.meet"
-		case "android":
-			jitsiURL.Scheme = "org.jitsi.meet"
+		if config.Deeplink {
+			switch stateData["client"].(string) {
+			case "electron":
+				jitsiURL.Scheme = "jitsi-meet"
+			case "ios":
+				jitsiURL.Scheme = "org.jitsi.meet"
+			case "android":
+				jitsiURL.Scheme = "org.jitsi.meet"
+			}
 		}
 
 		q := jitsiURL.Query()
@@ -267,7 +301,7 @@ func main() {
 
 		jitsiURL.RawQuery = q.Encode()
 
-		if strings.ToLower(config.Prejoin) != "true" {
+		if !config.Prejoin {
 			jitsiURL.Fragment = "config.prejoinConfig.enabled=false"
 		}
 

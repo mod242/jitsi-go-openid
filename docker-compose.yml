@@ -11,6 +11,8 @@
       - 'CLIENT_ID=xxxxxxx' # -> ClientID from Oauth Provider
       - 'SECRET=xxxxx' # -> Client Secret from Oauth Provider
       - 'PREJOIN=false' # -> Wheter the Prejoin page should be displayed again after Authentication
+      - 'DEEPLINK=true' # -> Wheter the Callback should use a Deeplink for Redirect to make sure the originating Client (Desktop, Ios, Android) is used
+      - 'NAME_KEY=name' # -> Key for Name from the JWT Token (defaults to name, but can be given_name or anything else that's in the token)
     expose: 
     - 3001
     networks:
