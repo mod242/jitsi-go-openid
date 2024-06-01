@@ -24,10 +24,9 @@ import (
 )
 
 type Config struct {
-	JitsiSecret string `mapstructure:"JITSI_SECRET"`
-	JitsiURL    string `mapstructure:"JITSI_URL"`
-	JitsiSub    string `mapstructure:"JITSI_SUB"`
-
+	JitsiSecret   string `mapstructure:"JITSI_SECRET"`
+	JitsiURL      string `mapstructure:"JITSI_URL"`
+	JitsiSub      string `mapstructure:"JITSI_SUB"`
 	IssuerBaseURL string `mapstructure:"ISSUER_BASE_URL"`
 	BaseURL       string `mapstructure:"BASE_URL"`
 	ClientID      string `mapstructure:"CLIENT_ID"`
@@ -63,17 +62,19 @@ func (p *PlayLoad) UnmarshalJSON(data []byte) error {
 	if name, ok := m[config.NameKey].(string); ok {
 		p.Name = name
 	}
-
 	return nil
 }
 
 type UserContext struct {
-	User PlayLoad `json:"user"`
+	User struct {
+		Email string `json:"email"`
+		Name  string `json:"name"`
+	} `json:"user"`
 }
 
 func init() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("Found no .env-File, will use Environemnt Variables")
+		log.Println("Found no .env-File, will use Environment Variables")
 	}
 
 	config.JitsiSecret = os.Getenv("JITSI_SECRET")
@@ -103,7 +104,6 @@ func randString(nByte int) (string, error) {
 
 func main() {
 	ctx := context.Background()
-
 	provider, err := oidc.NewProvider(ctx, config.IssuerBaseURL)
 	if err != nil {
 		log.Fatal("Error when trying to connect to OICD Provider", err)
@@ -131,7 +131,6 @@ func main() {
 		}
 
 		client := "browser"
-
 		if val, ok := data["electron"].(bool); ok && val {
 			client = "electron"
 		} else if val, ok := data["ios"].(bool); ok && val {
@@ -145,24 +144,25 @@ func main() {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
+
 		nonce, err := randString(16)
 		if err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
-		// Encode state with desktop information
 		stateData := map[string]interface{}{
 			"originalState": state,
 			"client":        client,
 		}
+
 		stateJSON, err := json.Marshal(stateData)
 		if err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		encodedState := base64.RawURLEncoding.EncodeToString(stateJSON)
 
+		encodedState := base64.RawURLEncoding.EncodeToString(stateJSON)
 		c.SetCookie("state", encodedState, int(time.Hour.Seconds()), "/", "", c.Request.TLS != nil, true)
 		c.SetCookie("nonce", nonce, int(time.Hour.Seconds()), "/", "", c.Request.TLS != nil, true)
 		c.SetCookie("room", room, int(time.Hour.Seconds()), "/", "", c.Request.TLS != nil, true)
@@ -175,12 +175,13 @@ func main() {
 			c.String(http.StatusInternalServerError, "state not found")
 			return
 		}
+
 		if c.Query("state") != stateDataEncoded {
 			c.String(http.StatusInternalServerError, "state did not match")
 			return
 		}
-		c.SetCookie("state", "", -1, "/", "", c.Request.TLS != nil, true)
 
+		c.SetCookie("state", "", -1, "/", "", c.Request.TLS != nil, true)
 		nonce, err := c.Cookie("nonce")
 		if err != nil {
 			c.String(http.StatusInternalServerError, "nonce not found")
@@ -192,8 +193,8 @@ func main() {
 			c.String(http.StatusInternalServerError, "state not set")
 			return
 		}
-		c.SetCookie("room", "", -1, "/", "", c.Request.TLS != nil, true)
 
+		c.SetCookie("room", "", -1, "/", "", c.Request.TLS != nil, true)
 		oauth2Token, err := oauthConfig.Exchange(ctx, c.Query("code"))
 		if err != nil {
 			c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to exchange token: %v", err))
@@ -209,8 +210,8 @@ func main() {
 		oidcConfig := &oidc.Config{
 			ClientID: config.ClientID,
 		}
-		verifier := provider.Verifier(oidcConfig)
 
+		verifier := provider.Verifier(oidcConfig)
 		idToken, err := verifier.Verify(ctx, rawIDToken)
 		if err != nil {
 			c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to verify ID Token: %v", err))
@@ -221,8 +222,8 @@ func main() {
 			c.String(http.StatusBadRequest, "nonce did not match")
 			return
 		}
-		c.SetCookie("nonce", "", -1, "/", "", c.Request.TLS != nil, true)
 
+		c.SetCookie("nonce", "", -1, "/", "", c.Request.TLS != nil, true)
 		oauth2Token.AccessToken = "*REDACTED*"
 
 		resp := struct {
@@ -236,19 +237,16 @@ func main() {
 		}
 
 		var playLoad PlayLoad
-
 		err = json.Unmarshal(*resp.IDTokenClaims, &playLoad)
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		user := &UserContext{
-			User: playLoad,
-		}
+		user := &UserContext{}
+		user.User.Email = playLoad.Email
+		user.User.Name = playLoad.Name
 
-		user.User.ID = ""
-		// Decode and parse the state
 		stateJSON, err := base64.RawURLEncoding.DecodeString(stateDataEncoded)
 		if err != nil {
 			c.String(http.StatusInternalServerError, "failed to decode state")
@@ -271,10 +269,10 @@ func main() {
 		claims["context"] = user
 
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
 		tokenString, err := token.SignedString([]byte(config.JitsiSecret))
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
+			return
 		}
 
 		jitsiURL, err := url.Parse(config.JitsiURL)
@@ -284,7 +282,6 @@ func main() {
 		}
 
 		jitsiURL.Path = path.Join(jitsiURL.Path, room)
-
 		if config.Deeplink {
 			switch stateData["client"].(string) {
 			case "electron":
@@ -298,9 +295,7 @@ func main() {
 
 		q := jitsiURL.Query()
 		q.Set("jwt", tokenString)
-
 		jitsiURL.RawQuery = q.Encode()
-
 		if !config.Prejoin {
 			jitsiURL.Fragment = "config.prejoinConfig.enabled=false"
 		}
