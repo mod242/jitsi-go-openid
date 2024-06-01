@@ -27,7 +27,7 @@ DEEPLINK=true                # Whether the callback should use a deep link for r
 ```
 
 ### Integration with Jitsi Meet on Docker
-This project has been tested with Jitsi Meet on Docker (https://github.com/jitsi/docker-jitsi-meet). To integrate this project, the provided Docker container should be started alongside Jitsi. If you are using a custom Docker network for Jitsi, the container should run within this network. To make the endpoint of this project available, it is recommended to use the Nginx container provided by Jitsi. According to the Jitsi Docker guidelines, you can create a "custom-meet.conf" file to publish this service. Example:
+This project has been tested with [Jitsi Meet on Docker](https://github.com/jitsi/docker-jitsi-meet). To integrate this project, the provided Docker container should be started alongside Jitsi. If you are using a custom Docker network for Jitsi, the container should run within this network. To make the endpoint of this project available, it is recommended to use the Nginx container provided by Jitsi. According to the Jitsi Docker guidelines, you can create a "custom-meet.conf" file to publish this service. Example:
 
 ```nginx
 location /jitsi-openid/ {
@@ -38,18 +38,18 @@ location /jitsi-openid/ {
 }
 ```
 
-This will expose the necessary service under the URL of the Jitsi conference server at /jitsi-openid (e.g., https://conference.url.com/jitsi-openid).
+This will expose the necessary service under the URL of the Jitsi conference server at /jitsi-openid (e.g., `https://conference.url.com/jitsi-openid`).
 
 ### Adjusting the .env File for Jitsi Docker
 Lastly, the .env file for Jitsi Docker needs to be adjusted:
 
-- ENABLE_AUTH must be enabled.
-- JWT_APP_ID should be set to the URL of the server (e.g., conference.url.com) and match the configuration of this service.
-- JWT_APP_SECRET must be set and match the configuration of this service.
-- JWT_ACCEPTED_ISSUERS should be set to `jitsi`.
-- JWT_ACCEPTED_AUDIENCES should be set to `jitsi`.
-- AUTH_TYPE should be set to `jwt`.
-- TOKEN_AUTH_URL must be set in the following format to this service:
+- `ENABLE_AUTH` must be enabled.
+- `JWT_APP_ID` should be set to the URL of the server (e.g., `conference.yoururl.com`) and match the configuration of this service.
+- `JWT_APP_SECRET` must be set and match the configuration of this service.
+- `JWT_ACCEPTED_ISSUERS` should be set to `jitsi`.
+- `JWT_ACCEPTED_AUDIENCES` should be set to `jitsi`.
+- `AUTH_TYPE` should be set to `jwt`.
+- `TOKEN_AUTH_URL` must be set in the following format to this service:
 `https://conference.yoururl.com/jitsi-openid/authenticate?state={state}&room={room}`
 
 ### Setting Up the OAuth Provider
