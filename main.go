@@ -265,9 +265,8 @@ func main() {
 		claims["aud"] = "jitsi"
 		claims["sub"] = config.JitsiSub
 		claims["iss"] = "jitsi"
-		claims["room"] = room
+		claims["room"] = url.PathEscape(room)
 		claims["context"] = user
-
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 		tokenString, err := token.SignedString([]byte(config.JitsiSecret))
 		if err != nil {
@@ -282,17 +281,6 @@ func main() {
 		}
 
 		jitsiURL.Path = path.Join(jitsiURL.Path, room)
-		if config.Deeplink {
-			switch stateData["client"].(string) {
-			case "electron":
-				jitsiURL.Scheme = "jitsi-meet"
-			case "ios":
-				jitsiURL.Scheme = "org.jitsi.meet"
-			case "android":
-				jitsiURL.Scheme = "org.jitsi.meet"
-			}
-		}
-
 		q := jitsiURL.Query()
 		q.Set("jwt", tokenString)
 		jitsiURL.RawQuery = q.Encode()
@@ -300,8 +288,76 @@ func main() {
 			jitsiURL.Fragment = "config.prejoinConfig.enabled=false"
 		}
 
+		originalURL := jitsiURL.String()
+
+		client := stateData["client"].(string)
+		if config.Deeplink {
+			switch client {
+			case "electron":
+				jitsiURL.Scheme = "jitsi-meet"
+			case "ios", "android":
+				jitsiURL.Scheme = "org.jitsi.meet"
+			}
+		}
+
 		log.Println("Redirect Url:", jitsiURL.String())
-		c.Redirect(http.StatusFound, jitsiURL.String())
+
+		if client == "electron" {
+			c.Header("Content-Type", "text/html; charset=utf-8")
+			c.String(http.StatusOK, fmt.Sprintf(`
+				<html>
+				<head>
+					<title>Weiterleitung zu Jitsi Desktop</title>
+					<style>
+						body {
+							font-family: Arial, sans-serif;
+							background-color: #f4f4f4;
+							text-align: center;
+						}
+						.container {
+							max-width: 500px;
+							margin: 50px auto;
+							background-color: #fff;
+							padding: 30px;
+							border-radius: 5px;
+							box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+						}
+						h3 {
+							color: #333;
+						}
+						p {
+							color: #666;
+							margin-bottom: 20px;
+						}
+						.button {
+							display: inline-block;
+							padding: 10px 20px;
+							background-color: #007BFF;
+							color: #fff;
+							text-decoration: none;
+							border-radius: 5px;
+						}
+					</style>
+				</head>
+				<body>
+					<div class="container">
+						<h3>Sie werden zur Jitsi Desktop Applikation weitergeleitet</h1>
+						<p>Bitte schließen Sie anschließend dieses Fenster manuell.</p>
+						<p>Nur falls sich die App nicht öffnet:</p>
+                		<a href="%s" class="button">Im Browser öffnen</a>
+					</div>
+
+					<script>
+						setTimeout(function() {
+							window.location.href = "%s";
+						}, 100);
+					</script>
+				</body>
+				</html>
+			`, originalURL, jitsiURL.String()))
+		} else {
+			c.Redirect(http.StatusFound, jitsiURL.String())
+		}
 	})
 
 	r.Run(":3001")
