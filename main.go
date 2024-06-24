@@ -117,6 +117,7 @@ func main() {
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 
+	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
 
@@ -300,15 +301,37 @@ func main() {
 			}
 		}
 
-		log.Println("Redirect Url:", jitsiURL.String())
+		accept := c.GetHeader("Accept-Language")
+		var lang string
+		if strings.Contains(accept, "de") {
+			lang = "de"
+		} else {
+			lang = "en"
+		}
 
-		if client == "electron" {
+		var title, redirectMsg, closeMsg, openMsg, buttonText string
+		if lang == "de" {
+			title = "Weiterleitung zu Jitsi Desktop"
+			redirectMsg = "Sie werden zur Jitsi Desktop Applikation weitergeleitet"
+			closeMsg = "Bitte schließen Sie anschließend dieses Fenster manuell."
+			openMsg = "Nur falls sich die App nicht öffnet:"
+			buttonText = "Im Browser öffnen"
+		} else {
+			title = "Redirecting to Jitsi Desktop"
+			redirectMsg = "You are being redirected to the Jitsi Desktop Application"
+			closeMsg = "Please close this window manually afterwards."
+			openMsg = "Only if the app does not open:"
+			buttonText = "Open in Browser"
+		}
+
+		if client == "electron" || client == "ios" || client == "android" {
 			c.Header("Content-Type", "text/html; charset=utf-8")
 			c.String(http.StatusOK, fmt.Sprintf(`
-				<html>
+				<html lang="%s">
 				<head>
-					<title>Weiterleitung zu Jitsi Desktop</title>
-					<style>
+					<title>%s</title>
+					<!-- ... -->
+				<style>
 						body {
 							font-family: Arial, sans-serif;
 							background-color: #f4f4f4;
@@ -337,14 +360,14 @@ func main() {
 							text-decoration: none;
 							border-radius: 5px;
 						}
-					</style>
+				</style>
 				</head>
 				<body>
 					<div class="container">
-						<h3>Sie werden zur Jitsi Desktop Applikation weitergeleitet</h1>
-						<p>Bitte schließen Sie anschließend dieses Fenster manuell.</p>
-						<p>Nur falls sich die App nicht öffnet:</p>
-                		<a href="%s" class="button">Im Browser öffnen</a>
+						<h3>%s</h3>
+						<p>%s</p>
+						<p>%s</p>
+                		<a href="%s" class="button">%s</a>
 					</div>
 
 					<script>
@@ -354,11 +377,16 @@ func main() {
 					</script>
 				</body>
 				</html>
-			`, originalURL, jitsiURL.String()))
+			`, lang, title, redirectMsg, closeMsg, openMsg, originalURL, buttonText, jitsiURL.String()))
 		} else {
 			c.Redirect(http.StatusFound, jitsiURL.String())
 		}
 	})
 
-	r.Run(":3001")
+	log.Println("Jitsi OpenID Server started on port 3001")
+
+	server_err := r.Run(":3001")
+	if server_err != nil {
+		log.Println("Error starting Jitsi OpenID server:", server_err)
+	}
 }
