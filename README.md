@@ -14,16 +14,16 @@ This image is available in the [Docker Hub](https://hub.docker.com/repository/do
 ### Configuration Environment Variables
 
 
-`JITSI_SECRET` - Must match the jwt_secret from your Jitsi configuration
-`JITSI_URL` - Base URL of your Jitsi instance
-`JITSI_SUB` - Must match the JWT_APP_ID from your Jitsi configuration
-`ISSUER_BASE_URL` - Base URL of your OpenID Connect provider
-`BASE_URL` - Public base URL of this application (should run behind a reverse proxy)
-`CLIENT_ID`- Client ID from your OAuth provider
-`SECRET` - Client secret from your OAuth provider
-`PREJOIN`- Whether the prejoin page should be displayed again after authentication
-`NAME_KEY` - Key for the user's name from the OAuth token (defaults to 'name', but can be 'given_name' or any other key present in the token)
-`DEEPLINK` - Whether the callback should use a deep link for redirect to ensure the originating client (Desktop, iOS, Android) is used
+`JITSI_SECRET` - Must match the jwt_secret from your Jitsi configuration  
+`JITSI_URL` - Base URL of your Jitsi instance  
+`JITSI_SUB` - Must match the JWT_APP_ID from your Jitsi configuration  
+`ISSUER_BASE_URL` - Base URL of your OpenID Connect provider  
+`BASE_URL` - Public base URL of this application (should run behind a reverse proxy)  
+`CLIENT_ID`- Client ID from your OAuth provider  
+`SECRET` - Client secret from your OAuth provider  
+`PREJOIN`- Whether the prejoin page should be displayed again after authentication  
+`NAME_KEY` - Key for the user's name from the OAuth token (defaults to 'name', but can be 'given_name' or any other key present in the token)  
+`DEEPLINK` - Whether the callback should use a deep link for redirect to ensure the originating client (Desktop, iOS, Android) is used  
 
 Example (.env or environment Variables)
 
