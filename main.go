@@ -225,24 +225,43 @@ func main() {
 		}
 
 		c.SetCookie("nonce", "", -1, "/", "", c.Request.TLS != nil, true)
-		oauth2Token.AccessToken = "*REDACTED*"
 
-		resp := struct {
-			OAuth2Token   *oauth2.Token
-			IDTokenClaims *json.RawMessage // ID Token payload is just JSON.
-		}{oauth2Token, new(json.RawMessage)}
-
-		if err := idToken.Claims(&resp.IDTokenClaims); err != nil {
+		// Extract claims from ID Token first
+		var idTokenClaims json.RawMessage
+		if err := idToken.Claims(&idTokenClaims); err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
 
 		var playLoad PlayLoad
-		err = json.Unmarshal(*resp.IDTokenClaims, &playLoad)
+		err = json.Unmarshal(idTokenClaims, &playLoad)
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
+
+		// If name is missing from ID Token, fetch from UserInfo Endpoint
+		if playLoad.Name == "" {
+			tokenSource := oauthConfig.TokenSource(ctx, oauth2Token)
+			userInfo, err := provider.UserInfo(ctx, tokenSource)
+			if err != nil {
+				log.Printf("Warning: failed to fetch UserInfo: %v", err)
+			} else {
+				var userInfoPayLoad PlayLoad
+				if err := userInfo.Claims(&userInfoPayLoad); err != nil {
+					log.Printf("Warning: failed to parse UserInfo claims: %v", err)
+				} else {
+					if userInfoPayLoad.Name != "" {
+						playLoad.Name = userInfoPayLoad.Name
+					}
+					if playLoad.Email == "" && userInfoPayLoad.Email != "" {
+						playLoad.Email = userInfoPayLoad.Email
+					}
+				}
+			}
+		}
+
+		oauth2Token.AccessToken = "*REDACTED*"
 
 		user := &UserContext{}
 		user.User.Email = playLoad.Email
