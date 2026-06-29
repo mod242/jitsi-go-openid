@@ -44,7 +44,7 @@ NAME_KEY=name
 This project has been tested with [Jitsi Meet on Docker](https://github.com/jitsi/docker-jitsi-meet). To integrate this project, the provided Docker container should be started alongside Jitsi. If you are using a custom Docker network for Jitsi, the container should run within this network. To make the endpoint of this project available, it is recommended to use the Nginx container provided by Jitsi. According to the Jitsi Docker guidelines, you can create a "custom-meet.conf" (The path in "Jitsi Meet on Docker" is ["/config/custom-meet.conf"](https://github.com/jitsi/docker-jitsi-meet/blob/d6b64a21b99cd46a664175d55525f78c08903637/web/rootfs/etc/cont-init.d/10-config#L114) file to publish this service. Example:
 
 ```nginx
-location /jitsi-openid/ {
+location ^~ /jitsi-openid/ {
     proxy_pass http://jitsi-openid:3001/;
     proxy_set_header X-Forwarded-For $remote_addr;
     proxy_buffering off;
