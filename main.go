@@ -171,6 +171,21 @@ func main() {
 	})
 
 	r.GET("/callback", func(c *gin.Context) {
+		if errCode := c.Query("error"); errCode != "" {
+			log.Printf(
+				"OIDC provider returned %s: %s",
+				errCode,
+				c.Query("error_description"),
+			)
+
+			c.String(
+				http.StatusBadRequest,
+				"OIDC provider error: %s (%s)",
+				errCode,
+				c.Query("error_description"),
+			)
+			return
+		}
 		stateDataEncoded, err := c.Cookie("state")
 		if err != nil {
 			c.String(http.StatusInternalServerError, "state not found")
@@ -196,7 +211,13 @@ func main() {
 		}
 
 		c.SetCookie("room", "", -1, "/", "", c.Request.TLS != nil, true)
-		oauth2Token, err := oauthConfig.Exchange(ctx, c.Query("code"))
+		code := c.Query("code")
+		if code == "" {
+			c.String(http.StatusBadRequest, "missing authorization code")
+			return
+		}
+
+		oauth2Token, err := oauthConfig.Exchange(ctx, code)
 		if err != nil {
 			c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to exchange token: %v", err))
 			return
