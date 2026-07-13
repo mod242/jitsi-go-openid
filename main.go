@@ -171,6 +171,21 @@ func main() {
 	})
 
 	r.GET("/callback", func(c *gin.Context) {
+		if errCode := c.Query("error"); errCode != "" {
+			log.Printf(
+				"OIDC provider returned %s: %s",
+				errCode,
+				c.Query("error_description"),
+			)
+
+			c.String(
+				http.StatusBadRequest,
+				"OIDC provider error: %s (%s)",
+				errCode,
+				c.Query("error_description"),
+			)
+			return
+		}
 		stateDataEncoded, err := c.Cookie("state")
 		if err != nil {
 			c.String(http.StatusInternalServerError, "state not found")
@@ -196,7 +211,13 @@ func main() {
 		}
 
 		c.SetCookie("room", "", -1, "/", "", c.Request.TLS != nil, true)
-		oauth2Token, err := oauthConfig.Exchange(ctx, c.Query("code"))
+		code := c.Query("code")
+		if code == "" {
+			c.String(http.StatusBadRequest, "missing authorization code")
+			return
+		}
+
+		oauth2Token, err := oauthConfig.Exchange(ctx, code)
 		if err != nil {
 			c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to exchange token: %v", err))
 			return
@@ -226,7 +247,7 @@ func main() {
 
 		c.SetCookie("nonce", "", -1, "/", "", c.Request.TLS != nil, true)
 
-		// Extract claims from ID Token first
+		// Extract claims from ID Token first.
 		var idTokenClaims json.RawMessage
 		if err := idToken.Claims(&idTokenClaims); err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
@@ -234,27 +255,29 @@ func main() {
 		}
 
 		var playLoad PlayLoad
-		err = json.Unmarshal(idTokenClaims, &playLoad)
-		if err != nil {
+		if err := json.Unmarshal(idTokenClaims, &playLoad); err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		// If name is missing from ID Token, fetch from UserInfo Endpoint
-		if playLoad.Name == "" {
+		// Query UserInfo only if required claims are missing from the ID Token.
+		if playLoad.Name == "" || playLoad.Email == "" {
 			tokenSource := oauthConfig.TokenSource(ctx, oauth2Token)
 			userInfo, err := provider.UserInfo(ctx, tokenSource)
 			if err != nil {
-				log.Printf("Warning: failed to fetch UserInfo: %v", err)
+				log.Printf(
+					"OIDC UserInfo request failed, continuing with ID Token claims only: %v",
+					err,
+				)
 			} else {
 				var userInfoPayLoad PlayLoad
 				if err := userInfo.Claims(&userInfoPayLoad); err != nil {
 					log.Printf("Warning: failed to parse UserInfo claims: %v", err)
 				} else {
-					if userInfoPayLoad.Name != "" {
+					if playLoad.Name == "" {
 						playLoad.Name = userInfoPayLoad.Name
 					}
-					if playLoad.Email == "" && userInfoPayLoad.Email != "" {
+					if playLoad.Email == "" {
 						playLoad.Email = userInfoPayLoad.Email
 					}
 				}
