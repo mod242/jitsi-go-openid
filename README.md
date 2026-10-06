@@ -24,6 +24,7 @@ This image is available in the [Docker Hub](https://hub.docker.com/repository/do
 `PREJOIN`- Whether the prejoin page should be displayed again after authentication  
 `NAME_KEY` - Key for the user's name from the OAuth token (defaults to 'name', but can be 'given_name' or any other key present in the token)  
 `DEEPLINK` - Whether the callback should use a deep link for redirect to ensure the originating client (Desktop, iOS, Android) is used  
+`LOBBY_BYPASS_KEY` - Name of the claim that carries the lobby bypass flag (defaults to 'lobby_bypass'). The claim's value may be a boolean or the string 'true'; anything else, or an absent claim, counts as false. Only when true is `context.user.lobby_bypass` added to the Jitsi JWT, which Prosody's `token_lobby_bypass` module evaluates to let the user skip the lobby  
 
 Example (.env or environment Variables)
 
@@ -38,6 +39,7 @@ SECRET=xxxxxxxxxxxxxxxxxxxxxxx
 PREJOIN=false
 DEEPLINK=true
 NAME_KEY=name
+LOBBY_BYPASS_KEY=lobby_bypass
 ```
 
 ### Integration with Jitsi Meet on Docker

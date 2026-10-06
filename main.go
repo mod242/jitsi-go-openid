@@ -24,24 +24,26 @@ import (
 )
 
 type Config struct {
-	JitsiSecret   string `mapstructure:"JITSI_SECRET"`
-	JitsiURL      string `mapstructure:"JITSI_URL"`
-	JitsiSub      string `mapstructure:"JITSI_SUB"`
-	IssuerBaseURL string `mapstructure:"ISSUER_BASE_URL"`
-	BaseURL       string `mapstructure:"BASE_URL"`
-	ClientID      string `mapstructure:"CLIENT_ID"`
-	Secret        string `mapstructure:"SECRET"`
-	Prejoin       bool   `mapstructure:"PREJOIN"`
-	Deeplink      bool   `mapstructure:"DEEPLINK"`
-	NameKey       string `mapstructure:"NAME_KEY"`
+	JitsiSecret    string `mapstructure:"JITSI_SECRET"`
+	JitsiURL       string `mapstructure:"JITSI_URL"`
+	JitsiSub       string `mapstructure:"JITSI_SUB"`
+	IssuerBaseURL  string `mapstructure:"ISSUER_BASE_URL"`
+	BaseURL        string `mapstructure:"BASE_URL"`
+	ClientID       string `mapstructure:"CLIENT_ID"`
+	Secret         string `mapstructure:"SECRET"`
+	Prejoin        bool   `mapstructure:"PREJOIN"`
+	Deeplink       bool   `mapstructure:"DEEPLINK"`
+	NameKey        string `mapstructure:"NAME_KEY"`
+	LobbyBypassKey string `mapstructure:"LOBBY_BYPASS_KEY"`
 }
 
 var config Config
 
 type PlayLoad struct {
-	ID    string `json:"sub,omitempty"`
-	Email string `json:"email,omitempty"`
-	Name  string `json:"-"`
+	ID          string `json:"sub,omitempty"`
+	Email       string `json:"email,omitempty"`
+	Name        string `json:"-"`
+	LobbyBypass bool   `json:"-"`
 }
 
 func (p *PlayLoad) UnmarshalJSON(data []byte) error {
@@ -62,13 +64,22 @@ func (p *PlayLoad) UnmarshalJSON(data []byte) error {
 	if name, ok := m[config.NameKey].(string); ok {
 		p.Name = name
 	}
+	// Identity providers disagree on the type: some emit a JSON bool,
+	// others a string. Accept both.
+	switch v := m[config.LobbyBypassKey].(type) {
+	case bool:
+		p.LobbyBypass = v
+	case string:
+		p.LobbyBypass = v == "true"
+	}
 	return nil
 }
 
 type UserContext struct {
 	User struct {
-		Email string `json:"email"`
-		Name  string `json:"name"`
+		Email       string `json:"email"`
+		Name        string `json:"name"`
+		LobbyBypass bool   `json:"lobby_bypass,omitempty"`
 	} `json:"user"`
 }
 
@@ -91,6 +102,10 @@ func init() {
 	config.NameKey = os.Getenv("NAME_KEY")
 	if config.NameKey == "" {
 		config.NameKey = "name"
+	}
+	config.LobbyBypassKey = os.Getenv("LOBBY_BYPASS_KEY")
+	if config.LobbyBypassKey == "" {
+		config.LobbyBypassKey = "lobby_bypass"
 	}
 }
 
@@ -289,6 +304,7 @@ func main() {
 		user := &UserContext{}
 		user.User.Email = playLoad.Email
 		user.User.Name = playLoad.Name
+		user.User.LobbyBypass = playLoad.LobbyBypass
 
 		stateJSON, err := base64.RawURLEncoding.DecodeString(stateDataEncoded)
 		if err != nil {
