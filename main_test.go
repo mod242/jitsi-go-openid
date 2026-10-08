@@ -73,3 +73,78 @@ func TestUserContextOmitsLobbyBypassWhenFalse(t *testing.T) {
 		t.Errorf("got %s, want %s", got, want)
 	}
 }
+
+func mustPlayLoad(t *testing.T, body string) PlayLoad {
+	t.Helper()
+	var p PlayLoad
+	if err := json.Unmarshal([]byte(body), &p); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	return p
+}
+
+// Some IdPs deliver custom claims only via UserInfo.
+func TestMergeUserInfo(t *testing.T) {
+	config.NameKey = "name"
+	config.LobbyBypassKey = "lobby_bypass"
+
+	tests := []struct {
+		name     string
+		id, info string
+		want     bool
+	}{
+		{"claim only in UserInfo", `{"sub":"1"}`, `{"lobby_bypass":true}`, true},
+		{"ID token true wins", `{"lobby_bypass":true}`, `{"lobby_bypass":false}`, true},
+		{"ID token explicit false wins", `{"lobby_bypass":false}`, `{"lobby_bypass":true}`, false},
+		{"absent everywhere", `{"sub":"1"}`, `{}`, false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := mustPlayLoad(t, tc.id)
+			p.mergeUserInfo(mustPlayLoad(t, tc.info))
+			if p.LobbyBypass != tc.want {
+				t.Errorf("LobbyBypass = %v, want %v", p.LobbyBypass, tc.want)
+			}
+		})
+	}
+
+	p := mustPlayLoad(t, `{"name":"ID","email":"id@b.de"}`)
+	p.mergeUserInfo(mustPlayLoad(t, `{"name":"Info","email":"info@b.de"}`))
+	if p.Name != "ID" || p.Email != "id@b.de" {
+		t.Errorf("ID token name/email overwritten: %+v", p)
+	}
+}
+
+func TestNeedsUserInfo(t *testing.T) {
+	config.NameKey = "name"
+
+	tests := []struct {
+		name, key, body string
+		want            bool
+	}{
+		{"feature off, complete", "", `{"name":"A","email":"a@b.de"}`, false},
+		{"feature off, email missing", "", `{"name":"A"}`, true},
+		{"feature on, claim present", "lobby_bypass", `{"name":"A","email":"a@b.de","lobby_bypass":false}`, false},
+		{"feature on, claim absent", "lobby_bypass", `{"name":"A","email":"a@b.de"}`, true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			config.LobbyBypassKey = tc.key
+			if got := mustPlayLoad(t, tc.body).needsUserInfo(); got != tc.want {
+				t.Errorf("needsUserInfo = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// Without LOBBY_BYPASS_KEY the claim is ignored, even if the IdP sends it.
+func TestLobbyBypassDisabledByDefault(t *testing.T) {
+	config.NameKey = "name"
+	config.LobbyBypassKey = ""
+
+	if mustPlayLoad(t, `{"sub":"1","lobby_bypass":true}`).LobbyBypass {
+		t.Error("claim honoured although LOBBY_BYPASS_KEY is unset")
+	}
+}

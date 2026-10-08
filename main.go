@@ -44,6 +44,9 @@ type PlayLoad struct {
 	Email       string `json:"email,omitempty"`
 	Name        string `json:"-"`
 	LobbyBypass bool   `json:"-"`
+	// lobbyBypassSet records whether the claim was present at all, so an
+	// explicit false is not mistaken for a missing claim.
+	lobbyBypassSet bool
 }
 
 func (p *PlayLoad) UnmarshalJSON(data []byte) error {
@@ -64,15 +67,40 @@ func (p *PlayLoad) UnmarshalJSON(data []byte) error {
 	if name, ok := m[config.NameKey].(string); ok {
 		p.Name = name
 	}
+	if config.LobbyBypassKey == "" {
+		return nil
+	}
 	// Identity providers disagree on the type: some emit a JSON bool,
 	// others a string. Accept both.
 	switch v := m[config.LobbyBypassKey].(type) {
 	case bool:
-		p.LobbyBypass = v
+		p.LobbyBypass, p.lobbyBypassSet = v, true
 	case string:
-		p.LobbyBypass = v == "true"
+		p.LobbyBypass, p.lobbyBypassSet = v == "true", true
 	}
 	return nil
+}
+
+// mergeUserInfo fills claims missing from the ID token with those from the
+// UserInfo endpoint. Some IdPs only deliver custom claims via UserInfo.
+func (p *PlayLoad) mergeUserInfo(u PlayLoad) {
+	if p.Name == "" {
+		p.Name = u.Name
+	}
+	if p.Email == "" {
+		p.Email = u.Email
+	}
+	if !p.lobbyBypassSet {
+		p.LobbyBypass, p.lobbyBypassSet = u.LobbyBypass, u.lobbyBypassSet
+	}
+}
+
+// needsUserInfo reports whether claims are missing from the ID token. The lobby
+// bypass claim only counts when LOBBY_BYPASS_KEY is set, so deployments that do
+// not use the feature never query UserInfo for it.
+func (p PlayLoad) needsUserInfo() bool {
+	return p.Name == "" || p.Email == "" ||
+		(config.LobbyBypassKey != "" && !p.lobbyBypassSet)
 }
 
 type UserContext struct {
@@ -104,9 +132,6 @@ func init() {
 		config.NameKey = "name"
 	}
 	config.LobbyBypassKey = os.Getenv("LOBBY_BYPASS_KEY")
-	if config.LobbyBypassKey == "" {
-		config.LobbyBypassKey = "lobby_bypass"
-	}
 }
 
 func randString(nByte int) (string, error) {
@@ -275,8 +300,8 @@ func main() {
 			return
 		}
 
-		// Query UserInfo only if required claims are missing from the ID Token.
-		if playLoad.Name == "" || playLoad.Email == "" {
+		// Query UserInfo only if claims are missing from the ID Token.
+		if playLoad.needsUserInfo() {
 			tokenSource := oauthConfig.TokenSource(ctx, oauth2Token)
 			userInfo, err := provider.UserInfo(ctx, tokenSource)
 			if err != nil {
@@ -289,12 +314,7 @@ func main() {
 				if err := userInfo.Claims(&userInfoPayLoad); err != nil {
 					log.Printf("Warning: failed to parse UserInfo claims: %v", err)
 				} else {
-					if playLoad.Name == "" {
-						playLoad.Name = userInfoPayLoad.Name
-					}
-					if playLoad.Email == "" {
-						playLoad.Email = userInfoPayLoad.Email
-					}
+					playLoad.mergeUserInfo(userInfoPayLoad)
 				}
 			}
 		}
