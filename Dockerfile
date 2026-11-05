@@ -7,7 +7,8 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -buildvcs=false -ldflags "-w -s" -o jitsi-go-openid
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM scratch
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /src/jitsi-go-openid .
 COPY LICENSE .
 
