@@ -1,12 +1,14 @@
-FROM --platform=$BUILDPLATFORM registry.access.redhat.com/ubi9/go-toolset:latest AS build
+ARG GO_VERSION=1.27.3
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS build
 ARG TARGETOS
 ARG TARGETARCH
+WORKDIR /src
 COPY . .
 
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -buildvcs=false -ldflags "-w -s" -o jitsi-go-openid
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -buildvcs=false -ldflags "-w -s" -o jitsi-go-openid
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
-COPY --from=build /opt/app-root/src/jitsi-go-openid .
+COPY --from=build /src/jitsi-go-openid .
 COPY LICENSE .
 
 EXPOSE 3001
