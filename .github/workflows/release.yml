@@ -37,7 +37,7 @@ jobs:
           md5sum: FALSE
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: 1.21.9
+          goversion: 1.27.3
           ldflags: ${{ matrix.ldflags }}
           compress_assets: OFF
           asset_name: ${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
