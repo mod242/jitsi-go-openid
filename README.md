@@ -10,7 +10,8 @@ This code is heavily inspired by https://github.com/bluffy/jitsi-oidc
 ## Deployment
 
 > **Note:** Since version 1.3 the image is based on `scratch` and contains only the statically linked binary and CA certificates — no shell, `curl` or `wget`. Container healthchecks that run a command inside the container (e.g. `HEALTHCHECK CMD curl ...` or a docker compose `healthcheck` with `test: ["CMD", "curl", ...]`) will no longer work, and `docker exec ... sh` is not available for debugging. Use checks that run outside the container instead, such as a Kubernetes `tcpSocket` or `httpGet` probe on port 3001, or your reverse proxy's health monitoring.
-This image is available in the [Docker Hub](https://hub.docker.com/repository/docker/mod242/jitsi-go-openid) and can be easily deployed by using docker compose.
+
+This image is available in the [Docker Hub](https://hub.docker.com/repository/docker/mod242/jitsi-go-openid) and can be easily deployed by using docker compose. <br>
 The image is also available from the GitHub Container Registry: `ghcr.io/mod242/jitsi-go-openid`.
 
 ### Configuration Environment Variables
